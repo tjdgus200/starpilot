@@ -215,8 +215,32 @@ class LongitudinalPlanner:
     self.lead_two = sm['radarState'].leadTwo
 
     lead_dist = self.lead_one.dRel if self.lead_one.status else 50.0
+
+    # Calculate scene uncertainty from model desire prediction entropy and disengage predictions
+    uncertainty = 0.0
+    if hasattr(sm['modelV2'], 'meta'):
+      # Desire prediction entropy (maneuver uncertainty)
+      desire_entropy = 0.0
+      if hasattr(sm['modelV2'].meta, 'desirePrediction'):
+        desire_probs = sm['modelV2'].meta.desirePrediction
+        if len(desire_probs) > 1:
+          desire_probs = np.array(desire_probs)
+          desire_probs = desire_probs / np.sum(desire_probs)  # Normalize
+          desire_entropy = -np.sum(desire_probs * np.log(desire_probs + 1e-10))
+
+      # Disengage prediction risk (intervention likelihood)
+      disengage_risk = 0.0
+      if hasattr(sm['modelV2'].meta, 'disengagePredictions'):
+        # Use brake press probabilities as primary risk indicator
+        brake_probs = sm['modelV2'].meta.disengagePredictions.brakePressProbs
+        if len(brake_probs) > 0:
+          disengage_risk = np.max(brake_probs)  # Peak risk over time horizon
+
+      # Combined uncertainty metric
+      uncertainty = desire_entropy + disengage_risk
+
     self.mpc.set_weights(sm['frogpilotPlan'].accelerationJerk, sm['frogpilotPlan'].dangerJerk, sm['frogpilotPlan'].speedJerk, prev_accel_constraint,
-                         personality=sm['controlsState'].personality, v_ego=v_ego, lead_dist=lead_dist)
+                          personality=sm['controlsState'].personality, v_ego=v_ego, lead_dist=lead_dist, uncertainty=uncertainty)
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)
     # After deciding the MPC mode via get_mpc_mode(), ensure MPC uses that mode when not mlsim
@@ -237,12 +261,12 @@ class LongitudinalPlanner:
       cloudlog.info("FCW triggered")
 
     # Safety checks for rubber-banding mitigation
-    # max_jerk = np.max(np.abs(self.mpc.j_solution))
-    # max_accel_change = np.max(np.abs(np.diff(self.mpc.a_solution)))
-    # if max_jerk > 5.0:  # m/s^3
-    #   cloudlog.warning(f"High jerk detected: {max_jerk:.2f} m/s^3")
-    # if max_accel_change > 2.0:  # m/s^2
-    #   cloudlog.warning(f"High acceleration change: {max_accel_change:.2f} m/s^2")
+    max_jerk = np.max(np.abs(self.mpc.j_solution))
+    max_accel_change = np.max(np.abs(np.diff(self.mpc.a_solution)))
+    if max_jerk > 5.0:  # m/s^3
+      cloudlog.warning(f"High jerk detected: {max_jerk:.2f} m/s^3")
+    if max_accel_change > 2.0:  # m/s^2
+      cloudlog.warning(f"High acceleration change: {max_accel_change:.2f} m/s^2")
 
     # Interpolate 0.05 seconds and save as starting point for next iteration
     a_prev = self.a_desired
