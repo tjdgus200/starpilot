@@ -46,10 +46,6 @@ def manager_init() -> None:
     ("LanguageSetting", "main_en"),
     ("OpenpilotEnabledToggle", "1"),
     ("LongitudinalPersonality", str(log.LongitudinalPersonality.standard)),
-
-    #NDA neokii
-    ("AutoNaviSpeedCtrlStart", "25"),
-    ("AutoNaviSpeedCtrlEnd", "15"),
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))
@@ -128,6 +124,14 @@ def manager_init() -> None:
     if params.get_bool("CECurves"):
       params.put_bool("CECurves", False)
     with open(cem_migration_flag_file, "w") as f:
+      f.write("migrated")
+
+  # One-time migration for NNFF to off
+  nnff_migration_flag_file = "/data/media/0/frogpilot_nnff_migrated.flag"
+  if not os.path.exists(nnff_migration_flag_file):
+    if params.get_bool("NNFF"):
+      params.put_bool("NNFF", False)
+    with open(nnff_migration_flag_file, "w") as f:
       f.write("migrated")
 
   # set dongle id
