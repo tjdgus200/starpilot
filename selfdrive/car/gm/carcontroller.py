@@ -448,25 +448,29 @@ class CarController(CarControllerBase):
           else:
             can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.CAMERA, CS.buttons_counter, CruiseButtons.CANCEL))
 
-    if self.CP.networkLocation == NetworkLocation.fwdCamera:
-      # Silence "Take Steering" alert sent by camera, forward PSCMStatus with HandsOffSWlDetectionStatus=1
-    if self.frame % 10 == 0:
-            # 1. 기존 상태값 복사 (import copy 필요 없이 dict() 사용)
-            pscm_status = dict(CS.pscm_status)
-            # 2. 상태값 강제 변조 (Active: 1, Inactive: 0)
-            # 저속에서 순정 카메라가 'Fault'를 띄워도, 여기서는 '정상'이라고 보냅니다.
-            # LKATorqueDeliveredStatus 키 이름은 DBC에 따라 다를 수 있으나 보통 이것을 씁니다.
-            pscm_status['LKATorqueDeliveredStatus'] = 1 if CC.latActive else 0
-            # 3. CanBus.POWERTRAIN (Bus 0)으로 전송하여 EPS에 직접 주입
-            can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.POWERTRAIN, pscm_status))
-
-    new_actuators = actuators.as_builder()
-    new_actuators.accel = accel
-    new_actuators.steer = self.apply_steer_last / self.params.STEER_MAX
-    new_actuators.steerOutputCan = self.apply_steer_last
-    new_actuators.gas = self.apply_gas
-    new_actuators.brake = self.apply_brake
-    new_actuators.speed = self.apply_speed
-
-    self.frame += 1
-    return new_actuators, can_sends
+      if self.CP.networkLocation == NetworkLocation.fwdCamera:
+            # [수정] 저속 LKAS 오류 해결을 위한 스푸핑 로직
+            # 10Hz 주기 (frame % 10 == 0)
+            if self.frame % 10 == 0:
+              # 1. 기존 상태값 복사
+              pscm_status = dict(CS.pscm_status)
+              
+              # 2. 상태값 강제 변조 (Active: 1, Inactive: 0)
+              # CC.latActive 대신 CC.enabled를 사용하여, OP가 켜져 있다면 
+              # 조향 중이 아니더라도(대기 상태 등) 항상 '정상' 신호를 보냄
+              pscm_status['LKATorqueDeliveredStatus'] = 1 if CC.enabled else 0
+              
+              # 3. 중요: CanBus.POWERTRAIN (Bus 0)으로 전송하여 EPS에 직접 주입
+              # (기존 코드는 CanBus.CAMERA로 보내고 있었음)
+              can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.POWERTRAIN, pscm_status))
+      
+          new_actuators = actuators.as_builder()
+          new_actuators.accel = accel
+          new_actuators.steer = self.apply_steer_last / self.params.STEER_MAX
+          new_actuators.steerOutputCan = self.apply_steer_last
+          new_actuators.gas = self.apply_gas
+          new_actuators.brake = self.apply_brake
+          new_actuators.speed = self.apply_speed
+      
+          self.frame += 1
+          return new_actuators, can_sends
