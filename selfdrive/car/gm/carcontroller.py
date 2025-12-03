@@ -450,8 +450,15 @@ class CarController(CarControllerBase):
 
     if self.CP.networkLocation == NetworkLocation.fwdCamera:
       # Silence "Take Steering" alert sent by camera, forward PSCMStatus with HandsOffSWlDetectionStatus=1
-      if self.frame % 20 == 0:
-        can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.CAMERA, CS.pscm_status))
+    if self.frame % 10 == 0:
+            # 1. 기존 상태값 복사 (import copy 필요 없이 dict() 사용)
+            pscm_status = dict(CS.pscm_status)
+            # 2. 상태값 강제 변조 (Active: 1, Inactive: 0)
+            # 저속에서 순정 카메라가 'Fault'를 띄워도, 여기서는 '정상'이라고 보냅니다.
+            # LKATorqueDeliveredStatus 키 이름은 DBC에 따라 다를 수 있으나 보통 이것을 씁니다.
+            pscm_status['LKATorqueDeliveredStatus'] = 1 if CC.latActive else 0
+            # 3. CanBus.POWERTRAIN (Bus 0)으로 전송하여 EPS에 직접 주입
+            can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.POWERTRAIN, pscm_status))
 
     new_actuators = actuators.as_builder()
     new_actuators.accel = accel
