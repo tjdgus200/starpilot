@@ -448,7 +448,8 @@ class CarController(CarControllerBase):
           else:
             can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.CAMERA, CS.buttons_counter, CruiseButtons.CANCEL))
 
-if self.CP.networkLocation == NetworkLocation.fwdCamera:
+# [여기서부터 수정됨] update 함수 내부 레벨(스페이스 4칸)로 들여쓰기 맞춤
+    if self.CP.networkLocation == NetworkLocation.fwdCamera:
       # [수정] 저속 LKAS 오류 해결을 위한 스푸핑 로직
       # 10Hz 주기 (frame % 10 == 0)
       if self.frame % 10 == 0:
@@ -456,14 +457,13 @@ if self.CP.networkLocation == NetworkLocation.fwdCamera:
         pscm_status = dict(CS.pscm_status)
         
         # 2. 상태값 강제 변조 (Active: 1, Inactive: 0)
-        # CC.latActive 대신 CC.enabled를 사용하여, OP가 켜져 있다면 
-        # 조향 중이 아니더라도(대기 상태 등) 항상 '정상' 신호를 보냄
+        # CC.enabled를 사용하여, OP가 켜져 있다면 조향 중이 아니더라도 항상 '정상' 신호를 보냄
         pscm_status['LKATorqueDeliveredStatus'] = 1 if CC.enabled else 0
         
         # 3. 중요: CanBus.POWERTRAIN (Bus 0)으로 전송하여 EPS에 직접 주입
         can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.POWERTRAIN, pscm_status))
 
-    # [중요 수정] 들여쓰기를 앞으로 당겨서(Unindent), if문 바깥으로 빼냈습니다.
+    # 리턴 부분도 스페이스 4칸으로 맞춤
     new_actuators = actuators.as_builder()
     new_actuators.accel = accel
     new_actuators.steer = self.apply_steer_last / self.params.STEER_MAX
