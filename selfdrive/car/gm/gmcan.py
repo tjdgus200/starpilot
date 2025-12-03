@@ -37,19 +37,19 @@ def create_pscm_status(packer, bus, pscm_status, enabled):
   ]}
   
   # 1. HandsOffSWlDetectionStatus (Bit 21, Weight 32)
-  if values["HandsOffSWlDetectionStatus"] == 0:
-    values["HandsOffSWlDetectionStatus"] = 1
-    values["PSCMStatusChecksum"] += 32  # 1 << 5
+  old_hands_off = values["HandsOffSWlDetectionStatus"]
+  new_hands_off = 1
+  checksum_delta = (new_hands_off - old_hands_off) * 32
+  values["HandsOffSWlDetectionStatus"] = new_hands_off
   
   # 2. LKATorqueDeliveredStatus (Bit 5, Weight 8)
+  old_lka_status = values["LKATorqueDeliveredStatus"]
   new_lka_status = 1 if enabled else 0
-  diff = new_lka_status - values["LKATorqueDeliveredStatus"]
-  if diff != 0:
-    values["LKATorqueDeliveredStatus"] = new_lka_status
-    values["PSCMStatusChecksum"] += (diff << 3)  # diff * 8
+  checksum_delta += (new_lka_status - old_lka_status) * 8
+  values["LKATorqueDeliveredStatus"] = new_lka_status
   
-  # Apply checksum modulo (10-bit checksum)
-  values["PSCMStatusChecksum"] %= 1024
+  # Apply checksum delta (10-bit checksum)
+  values["PSCMStatusChecksum"] = (values["PSCMStatusChecksum"] + checksum_delta) % 1024
   
   return packer.make_can_msg("PSCMStatus", bus, values)
 
