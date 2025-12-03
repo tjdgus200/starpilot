@@ -453,15 +453,10 @@ class CarController(CarControllerBase):
       # [수정] 저속 LKAS 오류 해결을 위한 스푸핑 로직
       # 10Hz 주기 (frame % 10 == 0)
       if self.frame % 10 == 0:
-        # 1. 기존 상태값 복사
-        pscm_status = dict(CS.pscm_status)
-        
-        # 2. 상태값 강제 변조 (Active: 1, Inactive: 0)
-        # CC.enabled를 사용하여, OP가 켜져 있다면 조향 중이 아니더라도 항상 '정상' 신호를 보냄
-        pscm_status['LKATorqueDeliveredStatus'] = 1 if CC.enabled else 0
-        
-        # 3. 중요: CanBus.POWERTRAIN (Bus 0)으로 전송하여 EPS에 직접 주입
-        can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.POWERTRAIN, pscm_status))
+        # 1. Send to PT bus (0) to fool EPS
+        can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.POWERTRAIN, CS.pscm_status, CC.enabled))
+        # 2. Send to Camera bus (2) to fool Camera (prevent timeout)
+        can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.CAMERA, CS.pscm_status, CC.enabled))
 
     # 리턴 부분도 스페이스 4칸으로 맞춤
     new_actuators = actuators.as_builder()
