@@ -337,6 +337,11 @@ class CarInterface(CarInterfaceBase):
     events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
                                                          GearShifter.eco, GearShifter.manumatic],
                                        pcm_enable=self.CP.pcmCruise, enable_buttons=(ButtonType.decelCruise,))
+    
+    # Manually trigger LKAS fault alert since we suppressed it in carstate
+    if self.CS.lkas_status == 3:
+      events.add(EventName.steerUnavailable)
+
     if not self.CP.pcmCruise:
       if any(b.type == ButtonType.accelCruise and b.pressed for b in ret.buttonEvents):
         events.add(EventName.buttonEnable)
