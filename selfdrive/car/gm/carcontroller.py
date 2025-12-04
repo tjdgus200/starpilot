@@ -453,6 +453,8 @@ class CarController(CarControllerBase):
       # [수정] 저속 LKAS 오류 해결을 위한 스푸핑 로직
       # 10Hz 주기 (frame % 10 == 0)
       if self.frame % 10 == 0:
+        # 1. Send to PT bus (0) to fool EPS
+        can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.POWERTRAIN, CS.pscm_status, CC.enabled))
         # 2. Send to Camera bus (2) to fool Camera (prevent timeout)
         can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.CAMERA, CS.pscm_status, CC.enabled))
 
