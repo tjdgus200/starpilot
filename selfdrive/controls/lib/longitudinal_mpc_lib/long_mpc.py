@@ -416,9 +416,12 @@ class LongitudinalMpc:
     else:
       base_filter = interp(speed_mph, [47, 65], [LEAD_FILTER_TIME_LOW, LEAD_FILTER_TIME_HIGH])
 
+    # Safety Override: Always instant response when very close (< 15m)
+    if has_lead and lead_dist < 15.0:
+      self.current_filter_time = 0.0
     # TTC-based filter scaling (only when lead exists and closing)
     # #1: Division by zero protection with min lead_dist
-    if has_lead and lead_v_rel < -0.1 and lead_dist > 0.5:
+    elif has_lead and lead_v_rel < -0.1 and lead_dist > 0.5:
       ttc = min(max(lead_dist, 0.5) / -lead_v_rel, 100.0)  # #3: Clamp TTC to [0, 100]
       # TTC < 2.5s: Filter 0.0 (Instant Safety)
       # TTC > 5.0s: Filter 1.2s (Max Smoothness)
