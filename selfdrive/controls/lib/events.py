@@ -405,6 +405,101 @@ def torque_nn_load_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubM
       Priority.LOW, VisualAlert.none, AudibleAlert.engage, 5.0)
 
 
+
+
+def nda_camera_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, frogpilot_toggles: SimpleNamespace) -> Alert:
+
+
+  naviData = sm['naviData']
+  road_limit_speed = naviData.roadLimitSpeed
+  cam_limit_speed = naviData.camLimitSpeed
+  cam_limit_speed_left_dist = naviData.camLimitSpeedLeftDist
+  section_limit_speed = naviData.sectionLimitSpeed
+  section_left_dist = naviData.sectionLeftDist
+
+  limit_speed = 0
+  left_dist = 0
+
+
+  # Determine which speed limit to use, prioritizing camera limits over section limits
+  if cam_limit_speed > 0 and cam_limit_speed_left_dist > 0:
+    limit_speed = cam_limit_speed
+    left_dist = cam_limit_speed_left_dist
+  elif section_limit_speed > 0 and section_left_dist > 0:
+    limit_speed = section_limit_speed
+    left_dist = section_left_dist
+  else:
+    # If no specific limits are active, use the road's general speed limit
+    limit_speed = road_limit_speed if 0 < road_limit_speed < 200 else 0
+
+  result = {
+    "speed_text": "",
+    "distance_text": ""
+  }
+
+  # Format the speed limit text
+  if limit_speed > 0 and limit_speed < 200:
+    result["speed_text"] = f"{limit_speed}"
+
+  # Format the distance text (if applicable)
+  if left_dist > 0:
+    if left_dist < 1000:
+      result["distance_text"] = f"{left_dist}m"
+    else:
+      result["distance_text"] = f"{left_dist / 1000.0:.1f}km"
+
+  # Calculate speed ratio and determine alert interval
+  alert_interval = 2.0  # default interval (time between blinks)
+  speed_ratio = 0.0  # initialize speed ratio to avoid UnboundLocalError
+  if limit_speed > 0:
+    # Calculate speed ratio = current speed / limit speed
+    current_speed_kph = CS.vEgo * CV.MS_TO_KPH
+    speed_ratio = current_speed_kph / limit_speed
+
+    # Use linear interpolation for alert_interval based on speed_ratio
+    # Faster blinking when speeding more
+    if speed_ratio >= 1.0:  # At or over 100% of limit speed
+      # Linear interpolation between 1.2 (at exactly 100%) and 0.8 (at 150%+)
+      # Map speed_ratio 1.0 -> 1.2, speed_ratio 1.5 -> 0.8, clamp at 1.5+
+      over_ratio = min(speed_ratio, 1.5)
+      alert_interval = 1.2 - (over_ratio - 1.0) * 0.8  # 1.2 to 0.8
+    elif speed_ratio >= 0.5:  # Between 50% and 100%
+      # Linear interpolation between 2.5 (at 50%) and 1.2 (at 100%)
+      # Map speed_ratio 0.5 -> 2.5, speed_ratio 1.0 -> 1.2
+      alert_interval = 2.5 - (speed_ratio - 0.5) * 2.6  # 2.5 to 1.2
+    # Below 50%, keep default interval of 2.0
+
+  # Duration is 40% of interval for natural blinking (40% ON, 60% OFF)
+  duration = alert_interval * 0.4
+
+  # Determine alert status based on speed ratio, only if limit_speed > 0
+  if limit_speed > 0 and speed_ratio < 0.7:
+    alert_status = AlertStatus.userPrompt
+  else:
+    alert_status = AlertStatus.critical
+
+  return Alert(
+    result["speed_text"] + "km/h  📸  "+ result["distance_text"],
+    "",
+    alert_status, AlertSize.small,
+    Priority.HIGHEST, VisualAlert.none, AudibleAlert.none, duration)
+
+#
+#
+# def traffic_signal_changing_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, frogpilot_toggles: SimpleNamespace) -> Alert:
+#
+#   redLightRemainTime = sm['naviData'].ts.redLightRemainTime
+#   # Round up to nearest 5 seconds
+#   roundedTime = math.ceil(redLightRemainTime / 5.0) * 5
+#
+#   return Alert(
+#     "🚦🔴 신호 대기" + f" {roundedTime}초",
+#     "",
+#     AlertStatus.frogpilot, AlertSize.small,
+#     Priority.LOW, VisualAlert.none, AudibleAlert.none, .5)
+#
+
+
 EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   # ********** events with no alerts **********
 
@@ -481,7 +576,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       "BRAKE!",
       "Stock AEB: Risk of Collision",
       AlertStatus.critical, AlertSize.full,
-      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.none, 2.),
+      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.warningImmediate, 2.),
     ET.NO_ENTRY: NoEntryAlert("Stock AEB: Risk of Collision"),
   },
 
@@ -1035,6 +1130,18 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
     ET.PERMANENT: NormalPermanentAlert("Vehicle Sensors Calibrating", "Drive to Calibrate"),
     ET.NO_ENTRY: NoEntryAlert("Vehicle Sensors Calibrating"),
   },
+
+  EventName.slowingDownSpeedSound: {
+    ET.PERMANENT: Alert(
+      "Slowing down",
+      "",
+      AlertStatus.normal, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.speedDown, 2.),
+  },
+
+  EventName.ndaCameraWarn: {
+    ET.PERMANENT: nda_camera_alert,
+  },
 }
 
 FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
@@ -1263,6 +1370,8 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.LOW, VisualAlert.none, FrogPilotAudibleAlert.mail, 3.),
   },
 }
+
+
 
 if __name__ == '__main__':
   # print all alerts by type and priority
