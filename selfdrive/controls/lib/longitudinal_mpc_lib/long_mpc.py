@@ -48,16 +48,16 @@ X_EGO_OBSTACLE_COSTS = [3.0, 3.0, 2.5, 2.0]  # Less aggressive at low speeds, cl
 
 # JERK CONTROL (Lower = More jerky/responsive, Higher = Smoother/conservative)
 # [City Emergency, Urban Hwy, Rural Hwy, High Speed]
-J_EGO_COSTS = [5.0, 4.75, 4.5, 4.0]  # Reverted to original 5.0 at low speeds
+J_EGO_COSTS = [5.5, 5.25, 5.0, 4.5]  # Slightly increased for smoother ride
 
 # ACCELERATION CHANGE PENALTIES (Lower = More responsive, Higher = Smoother)
 # [City Emergency, Urban Hwy, Rural Hwy, High Speed]
-A_CHANGE_COSTS = [200, 195, 180, 170]  # Reverted to original 200 at low speeds
+A_CHANGE_COSTS = [250, 240, 220, 200]  # Increased for smoother acceleration changes
 
 # SMOOTHING FILTERS - Speed-adaptive for optimal responsiveness
 # Lower = More responsive, Higher = Smoother
 LEAD_FILTER_TIME_LOW = 0.8  # Under 40 mph: Fast response for city emergency braking
-LEAD_FILTER_TIME_HIGH = 1.2  # Over 40 mph: Faster response to prevent highway gaps
+LEAD_FILTER_TIME_HIGH = 1.5  # Over 40 mph: Smoother 1.5s (was 1.2s) for relaxed following
 SPEED_FILTER_THRESHOLD = 40 * CV.MPH_TO_MS  # 40 mph threshold
 
 # DISTANCE ADAPTATION STRENGTH (How much penalties increase when close to lead)
