@@ -410,14 +410,17 @@ class LongitudinalMpc:
     # Update filter time constants with interp and recreate filters if needed
     # Dynamic TTC Smoothing combined with speed-based logic
     # #3: TTC upper clipping (100.0), #4: Speed+TTC combined filter
-    # Base filter from speed (original logic preserved)
-    # Base filter from speed (Linearize from 20kph to 70mph)
-    # 19.2 kph (~12 mph) -> LOW (0.8s)
-    # 112 kph (70 mph)   -> HIGH (1.5s)
-    base_filter = interp(speed_mph, [12, 70], [LEAD_FILTER_TIME_LOW, LEAD_FILTER_TIME_HIGH])
+    # Base filter from speed with improved low-speed response
+    # 0 mph → 0.0s (instant), 12 mph → 0.8s, 70 mph → 1.5s
+    base_filter = interp(speed_mph, [0, 12, 70], [0.0, LEAD_FILTER_TIME_LOW, LEAD_FILTER_TIME_HIGH])
 
-    # Safety Override: Always instant response when very close (< 15m)
-    if has_lead and lead_dist < 15.0:
+    # Speed-proportional safety distance: max(15m, 1 second of travel)
+    # At 70 mph (~31 m/s): 31m safety distance
+    # At 30 mph (~13 m/s): 15m safety distance (minimum)
+    safety_dist = max(15.0, v_ego * 1.0)
+
+    # Safety Override: Always instant response when within safety distance
+    if has_lead and lead_dist < safety_dist:
       self.current_filter_time = 0.0
     # TTC-based filter scaling (only when lead exists and closing)
     # #1: Division by zero protection with min lead_dist
