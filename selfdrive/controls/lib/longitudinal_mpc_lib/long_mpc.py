@@ -412,9 +412,9 @@ class LongitudinalMpc:
     # #3: TTC upper clipping (100.0), #4: Speed+TTC combined filter
     # Base filter from speed (original logic preserved)
     # Base filter from speed (Linearize from 20kph to 70mph)
-    # 20 kph (~12.5 mph) -> LOW (0.8s)
+    # 19.2 kph (~12 mph) -> LOW (0.8s)
     # 112 kph (70 mph)   -> HIGH (1.5s)
-    base_filter = interp(speed_mph, [12.5, 70], [LEAD_FILTER_TIME_LOW, LEAD_FILTER_TIME_HIGH])
+    base_filter = interp(speed_mph, [12, 70], [LEAD_FILTER_TIME_LOW, LEAD_FILTER_TIME_HIGH])
 
     # Safety Override: Always instant response when very close (< 15m)
     if has_lead and lead_dist < 15.0:
