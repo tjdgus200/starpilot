@@ -314,6 +314,13 @@ FW_QUERY_CONFIG = FwQueryConfig(
 EV_CAR = {CAR.CHEVROLET_VOLT, CAR.CHEVROLET_BOLT_EUV, CAR.CHEVROLET_VOLT_CC, CAR.CHEVROLET_BOLT_CC}
 CC_ONLY_CAR = {CAR.CHEVROLET_VOLT_CC, CAR.CHEVROLET_BOLT_CC, CAR.CHEVROLET_EQUINOX_CC, CAR.CHEVROLET_SUBURBAN_CC, CAR.GMC_YUKON_CC, CAR.CADILLAC_CT6_CC, CAR.CHEVROLET_TRAILBLAZER_CC, CAR.CADILLAC_XT5_CC, CAR.CHEVROLET_MALIBU_CC}
 CC_REGEN_PADDLE_CAR = {CAR.CHEVROLET_BOLT_CC, CAR.CHEVROLET_BOLT_EUV}
+
+# Bolt EV max regen deceleration by speed (for collision warning)
+# Derived from regen_gain_ratio in carcontroller.py
+# Speed (m/s) -> Max regen decel (m/s², negative)
+BOLT_REGEN_DECEL_BP = [0., 5., 10., 15., 20., 25.]  # m/s
+BOLT_REGEN_DECEL_V = [-1.0, -1.27, -1.40, -1.43, -1.36, -1.24]  # m/s²
+
 # CC_ONLY_CAR = set(c for c in CAR if str(c).endswith('_CC'))
 
 # We're integrated at the Safety Data Gateway Module on these cars

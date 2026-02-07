@@ -1369,6 +1369,14 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       FrogPilotAlertStatus.frogpilot, AlertSize.small,
       Priority.LOW, VisualAlert.none, FrogPilotAudibleAlert.mail, 3.),
   },
+
+  FrogPilotEventName.regenInsufficientWarning: {
+    ET.WARNING: Alert(
+      "Brake Manually!",
+      "Regen Insufficient to Stop",
+      AlertStatus.critical, AlertSize.mid,
+      Priority.HIGH, VisualAlert.steerRequired, AudibleAlert.warningSoft, 2.),
+  },
 }
 
 

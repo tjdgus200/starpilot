@@ -13,13 +13,13 @@ from msgq.visionipc import VisionIpcClient, VisionStreamType
 
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.git import get_short_branch
-from openpilot.common.numpy_fast import clip
+from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper, DT_CTRL
 from openpilot.common.swaglog import cloudlog
 
 from openpilot.selfdrive.car.car_helpers import get_car_interface, get_startup_event
-from openpilot.selfdrive.car.gm.values import CC_ONLY_CAR, GMFlags
+from openpilot.selfdrive.car.gm.values import CC_ONLY_CAR, GMFlags, CC_REGEN_PADDLE_CAR, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V
 from openpilot.selfdrive.controls.lib.alertmanager import AlertManager, set_offroad_alert
 from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper, clip_curvature
 from openpilot.selfdrive.controls.lib.events import Events, ET
@@ -498,6 +498,42 @@ class Controls:
     planner_fcw = self.sm['longitudinalPlan'].fcw and self.enabled
     if (planner_fcw or model_fcw) and not (self.CP.notCar and self.joystick_mode):
       self.events.add(EventName.fcw)
+
+    # Check for Bolt EV regen braking insufficient warning
+    # Only for Bolt EV with regen paddle, when moving with a detected lead
+    if (self.CP.carFingerprint in CC_REGEN_PADDLE_CAR and
+        self.CP.enableGasInterceptor and
+        self.enabled and
+        CS.vEgo > 5.0):  # Only check when moving > 5 m/s (~11 mph)
+      lead = self.sm['radarState'].leadOne
+      if lead.status and lead.dRel > 0:
+        # Calculate stopping distance with regen-only braking
+        # Using kinematic equation: d = v² / (2 * |a|)
+        max_regen_decel = abs(interp(CS.vEgo, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V))
+        # Ensure minimum decel to avoid division by zero
+        max_regen_decel = max(max_regen_decel, 0.5)
+
+        # Calculate ego stopping distance
+        ego_stopping_dist = (CS.vEgo ** 2) / (2 * max_regen_decel)
+
+        # Calculate lead stopping distance (assume lead stops immediately for worst case)
+        # Account for lead's current velocity - if lead is moving, we have more room
+        lead_v = max(0, lead.vLead)  # Lead velocity
+        relative_v = CS.vEgo - lead_v  # Closing speed
+
+        # Only warn if we're closing on the lead (relative velocity > 0)
+        if relative_v > 0:
+          # Required stopping distance = current distance + lead travel distance - safety margin
+          # Safety margin: 2.0 seconds of reaction time at current speed
+          reaction_time_dist = CS.vEgo * 0.5  # 0.5 second reaction time
+          safety_margin = 3.0  # meters
+
+          # Available distance to stop
+          available_dist = lead.dRel - safety_margin - reaction_time_dist
+
+          # If ego stopping distance > available distance, warn
+          if ego_stopping_dist > available_dist and available_dist > 0:
+            self.frogpilot_events.add(FrogPilotEventName.regenInsufficientWarning)
 
     for m in messaging.drain_sock(self.log_sock, wait_for_one=False):
       try:
