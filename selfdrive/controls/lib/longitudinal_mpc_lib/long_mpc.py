@@ -419,8 +419,9 @@ class LongitudinalMpc:
     # At 30 mph (~13 m/s): 15m safety distance (minimum)
     safety_dist = max(15.0, v_ego * 1.0)
 
-    # Safety Override: Always instant response when within safety distance
-    if has_lead and lead_dist < safety_dist:
+    # Safety Override: Instant response only when within safety distance AND closing on lead
+    # If close but not closing (following at same speed), use normal filter for comfort
+    if has_lead and lead_dist < safety_dist and lead_v_rel < -0.1:
       self.current_filter_time = 0.0
     # TTC-based filter scaling (only when lead exists and closing)
     # #1: Division by zero protection with min lead_dist
