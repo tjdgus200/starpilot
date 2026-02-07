@@ -242,6 +242,10 @@ class Controls:
     self.locationd_error_threshold = 85
     self.locationd_error_window = 0.75  # 0.75 second
 
+    # AEB brightness restoration tracking
+    self.aeb_active_prev = False
+    self.pre_aeb_brightness = None
+
   def reset(self):
     self.slowing_down = False
     self.slowing_down_sound_alert = False
@@ -548,9 +552,17 @@ class Controls:
     if self.event_names_to_clear:
       self.events.events = [event for event in self.events.events if event not in self.event_names_to_clear]
 
-    # Force max brightness on Critical AEB
-    if EventName.stockAeb in self.events.names:
+    # Force max brightness on Critical AEB and restore when AEB ends
+    aeb_active = EventName.stockAeb in self.events.names
+    if aeb_active and not self.aeb_active_prev:
+      # AEB just triggered - save current brightness and set to 100%
+      self.pre_aeb_brightness = HARDWARE.get_screen_brightness()
       HARDWARE.set_screen_brightness(100)
+    elif not aeb_active and self.aeb_active_prev and self.pre_aeb_brightness is not None:
+      # AEB just ended - restore previous brightness
+      HARDWARE.set_screen_brightness(self.pre_aeb_brightness)
+      self.pre_aeb_brightness = None
+    self.aeb_active_prev = aeb_active
 
   def data_sample(self):
     """Receive data from sockets"""
