@@ -319,7 +319,10 @@ CC_REGEN_PADDLE_CAR = {CAR.CHEVROLET_BOLT_CC, CAR.CHEVROLET_BOLT_EUV}
 # Derived from regen_gain_ratio in carcontroller.py
 # Speed (m/s) -> Max regen decel (m/s², negative)
 BOLT_REGEN_DECEL_BP = [0., 5., 10., 15., 20., 25.]  # m/s
-BOLT_REGEN_DECEL_V = [-1.0, -1.27, -1.40, -1.43, -1.36, -1.24]  # m/s²
+BOLT_REGEN_DECEL_V = [-1.0, -1.27, -1.40, -1.43, -1.36, -1.24]  # m/s² (with paddle)
+
+# Base regen without paddle (lifting off accelerator only, weaker braking)
+BOLT_BASE_REGEN_DECEL_V = [-0.7, -0.75, -0.80, -0.85, -0.80, -0.75]  # m/s² (without paddle)
 
 # CC_ONLY_CAR = set(c for c in CAR if str(c).endswith('_CC'))
 

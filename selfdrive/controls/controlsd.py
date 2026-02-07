@@ -19,7 +19,7 @@ from openpilot.common.realtime import config_realtime_process, Priority, Ratekee
 from openpilot.common.swaglog import cloudlog
 
 from openpilot.selfdrive.car.car_helpers import get_car_interface, get_startup_event
-from openpilot.selfdrive.car.gm.values import CC_ONLY_CAR, GMFlags, CC_REGEN_PADDLE_CAR, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V
+from openpilot.selfdrive.car.gm.values import CC_ONLY_CAR, GMFlags, CC_REGEN_PADDLE_CAR, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V, BOLT_BASE_REGEN_DECEL_V
 from openpilot.selfdrive.controls.lib.alertmanager import AlertManager, set_offroad_alert
 from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper, clip_curvature
 from openpilot.selfdrive.controls.lib.events import Events, ET
@@ -507,24 +507,32 @@ class Controls:
         CS.vEgo > 5.0):  # Only check when moving > 5 m/s (~11 mph)
       lead = self.sm['radarState'].leadOne
       if lead.status and lead.dRel > 0:
-        # Calculate stopping distance with regen-only braking
-        # Using kinematic equation: d = v² / (2 * |a|)
-        max_regen_decel = abs(interp(CS.vEgo, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V))
-        # Ensure minimum decel to avoid division by zero
-        max_regen_decel = max(max_regen_decel, 0.5)
+        # Determine if regen paddle is currently active based on accel command
+        # Same threshold as carcontroller.py: paddle active when accel < -0.7
+        accel_cmd = self.sm['longitudinalPlan'].accels[0] if len(self.sm['longitudinalPlan'].accels) > 0 else 0
+        regen_paddle_active = accel_cmd < -0.7
 
-        # Calculate ego stopping distance
+        # Select appropriate decel table based on regen paddle state
+        if regen_paddle_active:
+          # Paddle is active - use stronger regen decel
+          max_regen_decel = abs(interp(CS.vEgo, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V))
+        else:
+          # Paddle not active - use weaker base regen decel
+          max_regen_decel = abs(interp(CS.vEgo, BOLT_REGEN_DECEL_BP, BOLT_BASE_REGEN_DECEL_V))
+
+        # Ensure minimum decel to avoid division by zero
+        max_regen_decel = max(max_regen_decel, 0.3)
+
+        # Calculate ego stopping distance using kinematic equation: d = v² / (2 * |a|)
         ego_stopping_dist = (CS.vEgo ** 2) / (2 * max_regen_decel)
 
-        # Calculate lead stopping distance (assume lead stops immediately for worst case)
         # Account for lead's current velocity - if lead is moving, we have more room
         lead_v = max(0, lead.vLead)  # Lead velocity
         relative_v = CS.vEgo - lead_v  # Closing speed
 
         # Only warn if we're closing on the lead (relative velocity > 0)
         if relative_v > 0:
-          # Required stopping distance = current distance + lead travel distance - safety margin
-          # Safety margin: 2.0 seconds of reaction time at current speed
+          # Safety margins
           reaction_time_dist = CS.vEgo * 0.5  # 0.5 second reaction time
           safety_margin = 3.0  # meters
 
