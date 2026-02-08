@@ -82,7 +82,7 @@ class DesireHelper:
           self.lane_change_wait_timer = frogpilot_toggles.lane_change_delay
         else:
           desired_lane_width = frogpilotPlan.laneWidthLeft if carstate.leftBlinker else frogpilotPlan.laneWidthRight
-          lane_available = desired_lane_width >= frogpilot_toggles.lane_detection_width or not frogpilot_toggles.lane_detection
+          lane_available = desired_lane_width >= frogpilot_toggles.lane_detection_width
           torque_applied = lane_available and self.lane_change_wait_timer >= frogpilot_toggles.lane_change_delay and frogpilot_toggles.nudgeless
 
         blindspot_detected = ((carstate.leftBlindspot and self.lane_change_direction == LaneChangeDirection.left) or
