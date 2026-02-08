@@ -399,14 +399,19 @@ class LongitudinalPlanner:
         hard_brake_prob = float(max(brake_3mps_probs))
 
     # Extract model confidence (0=red, 1=yellow, 2=green)
+    # Import ConfidenceClass enum for proper comparison
+    from cereal import log
+    ConfidenceClass = log.ModelDataV2.ConfidenceClass
     model_confidence = 2  # default green
     if hasattr(sm['modelV2'], 'confidence'):
-      try:
-        conf = sm['modelV2'].confidence
-        # ConfidenceClass enum: red=0, yellow=1, green=2
-        model_confidence = conf.raw if hasattr(conf, 'raw') else int(conf)
-      except (ValueError, TypeError, AttributeError):
-        model_confidence = 2  # default to green on error
+      conf = sm['modelV2'].confidence
+      # Compare with enum values directly
+      if conf == ConfidenceClass.red:
+        model_confidence = 0
+      elif conf == ConfidenceClass.yellow:
+        model_confidence = 1
+      else:  # green
+        model_confidence = 2
 
     # Check if lane changing is in progress
     lane_changing = False
