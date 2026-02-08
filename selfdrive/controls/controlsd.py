@@ -504,7 +504,7 @@ class Controls:
     if (self.CP.carFingerprint in CC_REGEN_PADDLE_CAR and
         self.CP.enableGasInterceptor and
         self.enabled and
-        CS.vEgo > 5.0):  # Only check when moving > 5 m/s (~11 mph)
+        CS.vEgo > 1.0):  # Check when moving > 1 m/s (~3.6 km/h)
       lead = self.sm['radarState'].leadOne
       if lead.status and lead.dRel > 0:
         # Determine if regen paddle is currently active based on accel command
