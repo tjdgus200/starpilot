@@ -391,6 +391,13 @@ class LongitudinalPlanner:
     has_lead = self.lead_one.status
     lead_v_rel = self.lead_one.vRel if has_lead else 0.0
 
+    # Extract hard brake probability (3 m/s² threshold) for MPC filter override
+    hard_brake_prob = 0.0
+    if hasattr(sm['modelV2'].meta, 'disengagePredictions'):
+      brake_3mps_probs = sm['modelV2'].meta.disengagePredictions.brake3MetersPerSecondSquaredProbs
+      if len(brake_3mps_probs) > 0:
+        hard_brake_prob = float(max(brake_3mps_probs))
+
     self.mpc.set_weights(
       sm['frogpilotPlan'].accelerationJerk,
       sm['frogpilotPlan'].dangerJerk,
@@ -404,6 +411,7 @@ class LongitudinalPlanner:
       panic_bypass=panic_bypass,
       lead_v_rel=lead_v_rel,
       has_lead=has_lead,
+      hard_brake_prob=hard_brake_prob,
     )
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)

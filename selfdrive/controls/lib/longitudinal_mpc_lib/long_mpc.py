@@ -385,6 +385,7 @@ class LongitudinalMpc:
     panic_bypass=False,
     lead_v_rel=0.0,
     has_lead=False,
+    hard_brake_prob=0.0,
   ):
     # Update parameters based on current speed with interpolation for smooth scaling
     speed_mph = v_ego * CV.MS_TO_MPH  # Convert m/s to mph
@@ -419,9 +420,12 @@ class LongitudinalMpc:
     # At 30 mph (~13 m/s): 15m safety distance (minimum)
     safety_dist = max(15.0, v_ego * 1.0)
 
+    # Model Hard Brake Override: If model predicts >30% probability of 3m/s² hard braking, instant response
+    if hard_brake_prob > 0.3:
+      self.current_filter_time = 0.0
     # Safety Override: Instant response only when within safety distance AND closing on lead
     # If close but not closing (following at same speed), use normal filter for comfort
-    if has_lead and lead_dist < safety_dist and lead_v_rel < -0.1:
+    elif has_lead and lead_dist < safety_dist and lead_v_rel < -0.1:
       self.current_filter_time = 0.0
     # TTC-based filter scaling (only when lead exists and closing)
     # #1: Division by zero protection with min lead_dist
