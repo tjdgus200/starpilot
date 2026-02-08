@@ -401,9 +401,12 @@ class LongitudinalPlanner:
     # Extract model confidence (0=red, 1=yellow, 2=green)
     model_confidence = 2  # default green
     if hasattr(sm['modelV2'], 'confidence'):
-      conf = sm['modelV2'].confidence
-      # ConfidenceClass enum: red=0, yellow=1, green=2
-      model_confidence = int(conf)
+      try:
+        conf = sm['modelV2'].confidence
+        # ConfidenceClass enum: red=0, yellow=1, green=2
+        model_confidence = conf.raw if hasattr(conf, 'raw') else int(conf)
+      except (ValueError, TypeError, AttributeError):
+        model_confidence = 2  # default to green on error
 
     # Check if lane changing is in progress
     lane_changing = False
