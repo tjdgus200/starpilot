@@ -386,6 +386,8 @@ class LongitudinalMpc:
     lead_v_rel=0.0,
     has_lead=False,
     hard_brake_prob=0.0,
+    model_confidence=2,  # 0=red, 1=yellow, 2=green
+    lane_changing=False,
   ):
     # Update parameters based on current speed with interpolation for smooth scaling
     speed_mph = v_ego * CV.MS_TO_MPH  # Convert m/s to mph
@@ -420,6 +422,13 @@ class LongitudinalMpc:
     # At 30 mph (~13 m/s): 15m safety distance (minimum)
     safety_dist = max(15.0, v_ego * 1.0)
 
+    # Adjust safety distance based on model confidence
+    # red=0: +30%, yellow=1: +15%, green=2: no change
+    if model_confidence == 0:  # red - low confidence
+      safety_dist *= 1.3
+    elif model_confidence == 1:  # yellow - medium confidence
+      safety_dist *= 1.15
+
     # Model Hard Brake Override: If model predicts >30% probability of 3m/s² hard braking, instant response
     if hard_brake_prob > 0.3:
       self.current_filter_time = 0.0
@@ -436,6 +445,10 @@ class LongitudinalMpc:
       self.current_filter_time = interp(ttc, [2.5, 5.0], [0.0, LEAD_FILTER_TIME_HIGH])
     else:
       self.current_filter_time = base_filter
+
+    # Lane changing protection: maintain minimum filter to prevent jerky behavior
+    if lane_changing and self.current_filter_time < 0.5:
+      self.current_filter_time = 0.5
     if abs(self.current_filter_time - getattr(self, 'prev_filter_time', 0)) > 0.1:  # Only update if significant change
       # Recreate filters with new time constant while preserving current values
       current_a = self.lead_a_filter.x if hasattr(self.lead_a_filter, 'x') else 0.0

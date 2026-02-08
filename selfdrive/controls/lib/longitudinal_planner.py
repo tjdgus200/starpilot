@@ -398,6 +398,20 @@ class LongitudinalPlanner:
       if len(brake_3mps_probs) > 0:
         hard_brake_prob = float(max(brake_3mps_probs))
 
+    # Extract model confidence (0=red, 1=yellow, 2=green)
+    model_confidence = 2  # default green
+    if hasattr(sm['modelV2'], 'confidence'):
+      conf = sm['modelV2'].confidence
+      # ConfidenceClass enum: red=0, yellow=1, green=2
+      model_confidence = int(conf)
+
+    # Check if lane changing is in progress
+    lane_changing = False
+    if hasattr(sm['modelV2'].meta, 'laneChangeState'):
+      from cereal import log
+      lc_state = sm['modelV2'].meta.laneChangeState
+      lane_changing = lc_state != log.LaneChangeState.off
+
     self.mpc.set_weights(
       sm['frogpilotPlan'].accelerationJerk,
       sm['frogpilotPlan'].dangerJerk,
@@ -412,6 +426,8 @@ class LongitudinalPlanner:
       lead_v_rel=lead_v_rel,
       has_lead=has_lead,
       hard_brake_prob=hard_brake_prob,
+      model_confidence=model_confidence,
+      lane_changing=lane_changing,
     )
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)
