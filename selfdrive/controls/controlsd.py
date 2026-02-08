@@ -539,8 +539,9 @@ class Controls:
           # Available distance to stop
           available_dist = lead.dRel - safety_margin - reaction_time_dist
 
-          # If ego stopping distance > available distance, warn
-          if ego_stopping_dist > available_dist and available_dist > 0:
+          # If ego stopping distance > available distance by 10% margin, and closing fast, warn
+          # Added 10% margin and 2 m/s closing speed threshold to reduce false warnings
+          if ego_stopping_dist > available_dist * 1.1 and available_dist > 0 and relative_v > 2.0:
             self.frogpilot_events.add(FrogPilotEventName.regenInsufficientWarning)
 
     for m in messaging.drain_sock(self.log_sock, wait_for_one=False):
