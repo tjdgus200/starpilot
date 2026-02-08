@@ -412,6 +412,15 @@ class LongitudinalPlanner:
       lc_state = sm['modelV2'].meta.laneChangeState
       lane_changing = lc_state != log.LaneChangeState.off
 
+    # Extract predicted lead distance 2 seconds ahead from leadsV3
+    lead_future_dist = -1.0  # -1 means no prediction available
+    leads_v3 = sm['modelV2'].leadsV3
+    if len(leads_v3) > 0 and has_lead:
+      lead_v3 = leads_v3[0]
+      # Index 4 is approximately 2 seconds ahead based on model time indices
+      if len(lead_v3.x) > 4:
+        lead_future_dist = float(lead_v3.x[4])
+
     self.mpc.set_weights(
       sm['frogpilotPlan'].accelerationJerk,
       sm['frogpilotPlan'].dangerJerk,
@@ -428,6 +437,7 @@ class LongitudinalPlanner:
       hard_brake_prob=hard_brake_prob,
       model_confidence=model_confidence,
       lane_changing=lane_changing,
+      lead_future_dist=lead_future_dist,
     )
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)

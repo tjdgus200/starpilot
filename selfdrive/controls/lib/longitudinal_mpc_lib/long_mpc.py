@@ -388,6 +388,7 @@ class LongitudinalMpc:
     hard_brake_prob=0.0,
     model_confidence=2,  # 0=red, 1=yellow, 2=green
     lane_changing=False,
+    lead_future_dist=-1.0,  # Predicted lead distance 2s ahead, -1 if unavailable
   ):
     # Update parameters based on current speed with interpolation for smooth scaling
     speed_mph = v_ego * CV.MS_TO_MPH  # Convert m/s to mph
@@ -439,7 +440,11 @@ class LongitudinalMpc:
     # TTC-based filter scaling (only when lead exists and closing)
     # #1: Division by zero protection with min lead_dist
     elif has_lead and lead_v_rel < -0.1 and lead_dist > 0.5:
-      ttc = min(max(lead_dist, 0.5) / -lead_v_rel, 100.0)  # #3: Clamp TTC to [0, 100]
+      # Use predicted future distance if available (more conservative for safety)
+      effective_dist = lead_dist
+      if lead_future_dist > 0:
+        effective_dist = min(lead_dist, lead_future_dist)
+      ttc = min(max(effective_dist, 0.5) / -lead_v_rel, 100.0)  # #3: Clamp TTC to [0, 100]
       # TTC < 2.5s: Filter 0.0 (Instant Safety)
       # TTC > 5.0s: Filter 1.2s (Max Smoothness)
       self.current_filter_time = interp(ttc, [2.5, 5.0], [0.0, LEAD_FILTER_TIME_HIGH])
