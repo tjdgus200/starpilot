@@ -421,6 +421,11 @@ class LongitudinalPlanner:
       if len(lead_v3.x) > 4:
         lead_future_dist = float(lead_v3.x[4])
 
+    # Extract model's desired acceleration for Bolt EV regen capability check
+    model_desired_accel = 0.0
+    if hasattr(sm['modelV2'], 'action'):
+      model_desired_accel = float(sm['modelV2'].action.desiredAcceleration)
+
     self.mpc.set_weights(
       sm['frogpilotPlan'].accelerationJerk,
       sm['frogpilotPlan'].dangerJerk,
@@ -438,6 +443,7 @@ class LongitudinalPlanner:
       model_confidence=model_confidence,
       lane_changing=lane_changing,
       lead_future_dist=lead_future_dist,
+      model_desired_accel=model_desired_accel,
     )
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)

@@ -11,6 +11,7 @@ from openpilot.common.conversions import Conversions as CV
 # WARNING: imports outside of constants will not trigger a rebuild
 from openpilot.selfdrive.modeld.constants import index_function
 from openpilot.selfdrive.car.interfaces import ACCEL_MIN
+from openpilot.selfdrive.car.gm.values import BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V
 
 if __name__ == '__main__':  # generating code
   from openpilot.third_party.acados.acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
@@ -389,6 +390,8 @@ class LongitudinalMpc:
     model_confidence=2,  # 0=red, 1=yellow, 2=green
     lane_changing=False,
     lead_future_dist=-1.0,  # Predicted lead distance 2s ahead, -1 if unavailable
+    model_desired_accel=0.0,  # Model's desired acceleration for regen check
+    is_bolt_regen=True,  # Whether this is a Bolt EV with regen paddle
   ):
     # Update parameters based on current speed with interpolation for smooth scaling
     speed_mph = v_ego * CV.MS_TO_MPH  # Convert m/s to mph
@@ -430,8 +433,16 @@ class LongitudinalMpc:
     elif model_confidence == 1:  # yellow - medium confidence
       safety_dist *= 1.15
 
+    # Bolt EV Regen Capability Override: If model wants more decel than regen can provide, instant response
+    # This is critical for the Bolt EV which can only brake with pedal and regen paddle
+    if is_bolt_regen and model_desired_accel < 0:
+      # Get max regen deceleration at current speed (negative value)
+      max_regen_decel = interp(v_ego, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V)
+      # If model wants more deceleration than regen can provide (with 20% safety margin)
+      if model_desired_accel < max_regen_decel * 0.8:  # e.g., -1.4 * 0.8 = -1.12
+        self.current_filter_time = 0.0
     # Model Hard Brake Override: If model predicts >30% probability of 3m/s² hard braking, instant response
-    if hard_brake_prob > 0.3:
+    elif hard_brake_prob > 0.3:
       self.current_filter_time = 0.0
     # Safety Override: Instant response only when within safety distance AND closing on lead
     # If close but not closing (following at same speed), use normal filter for comfort
