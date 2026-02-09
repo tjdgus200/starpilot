@@ -137,6 +137,10 @@ class LongitudinalPlanner:
     # Filter for model's desired acceleration to reduce noise
     self.model_accel_filter = FirstOrderFilter(0.0, 0.3, self.dt)  # 0.3s time constant
 
+    # Filters for TTC calculation inputs to reduce oscillation
+    self.lead_v_rel_filter = FirstOrderFilter(0.0, 0.2, self.dt)  # 0.2s for relative velocity
+    self.lead_dist_filter = FirstOrderFilter(50.0, 0.15, self.dt)  # 0.15s for distance (faster response)
+
     # Uncertainty slope tracking
     self._uncert_last = 0.0
     self._uncert_last_t = None
@@ -391,8 +395,14 @@ class LongitudinalPlanner:
         self.accel_nudge_until = now_t + 0.45
 
     # Calculate lead relative velocity for safety check (if lead exists)
+    # Apply filters to reduce TTC oscillation
     has_lead = self.lead_one.status
-    lead_v_rel = self.lead_one.vRel if has_lead else 0.0
+    raw_lead_v_rel = self.lead_one.vRel if has_lead else 0.0
+    lead_v_rel = self.lead_v_rel_filter.update(raw_lead_v_rel)
+
+    # Also filter lead distance for smoother TTC
+    raw_lead_dist = self.lead_one.dRel if has_lead else 50.0
+    filtered_lead_dist = self.lead_dist_filter.update(raw_lead_dist)
 
     # Extract hard brake probability (3 m/s² threshold) for MPC filter override
     hard_brake_prob = 0.0
@@ -446,7 +456,7 @@ class LongitudinalPlanner:
       prev_accel_constraint,
       personality=sm['controlsState'].personality,
       v_ego=v_ego,
-      lead_dist=self.lead_dist_f if self.lead_dist_f is not None else lead_dist,
+      lead_dist=self.lead_dist_f if self.lead_dist_f is not None else filtered_lead_dist,
       uncertainty=uncertainty,
       accel_reengage=self.accel_gate,
       panic_bypass=panic_bypass,
