@@ -134,6 +134,9 @@ class LongitudinalPlanner:
     self._t_disarm = 0.0
     self.lead_dist_f = None
 
+    # Filter for model's desired acceleration to reduce noise
+    self.model_accel_filter = FirstOrderFilter(0.0, 0.3, self.dt)  # 0.3s time constant
+
     # Uncertainty slope tracking
     self._uncert_last = 0.0
     self._uncert_last_t = None
@@ -430,9 +433,11 @@ class LongitudinalPlanner:
         lead_future_dist = float(lead_v3.x[4])
 
     # Extract model's desired acceleration for Bolt EV regen capability check
-    model_desired_accel = 0.0
+    # Apply filter to reduce noise in model output
+    raw_model_accel = 0.0
     if hasattr(sm['modelV2'], 'action'):
-      model_desired_accel = float(sm['modelV2'].action.desiredAcceleration)
+      raw_model_accel = float(sm['modelV2'].action.desiredAcceleration)
+    model_desired_accel = self.model_accel_filter.update(raw_model_accel)
 
     self.mpc.set_weights(
       sm['frogpilotPlan'].accelerationJerk,
