@@ -533,20 +533,30 @@ class Controls:
 
         # Only warn if we're closing on the lead (relative velocity > 0)
         if relative_v > 0:
-          # Safety margins - specific user request: 4m buffer
-          reaction_time_dist = 0.0  # User requested pure distance calculation
-          safety_margin = 4.0  # meters
-
-          # Available distance to stop
-          available_dist = lead.dRel - safety_margin - reaction_time_dist
-
-          # If ego stopping distance > available distance by 10% margin, and closing fast
-          # Added 10% margin and 2 m/s closing speed threshold to reduce false warnings
-          # Added 0.5s temporal hysteresis to filter momentary signal noise
-          if ego_stopping_dist > available_dist * 1.1 and available_dist > 0 and relative_v > 2.0:
+          # Calculate time to stop for ego at max regen
+          # t_stop = v_ego / a_regen
+          t_stop = CS.vEgo / max_regen_decel
+          
+          # Distance ego travels while stopping: d = v*t - 0.5*a*t^2 = 0.5 * v * t
+          ego_stop_dist = 0.5 * CS.vEgo * t_stop
+          
+          # Distance lead travels during that time (assuming constant speed)
+          lead_travel_dist = lead_v * t_stop
+          
+          # Minimum gap required at standstill (4m safety margin)
+          min_gap = 4.0
+          
+          # Predicted remaining gap after ego stops
+          predicted_gap = lead.dRel + lead_travel_dist - ego_stop_dist
+          
+          # If predicted gap < min_gap, collision likely!
+          if predicted_gap < min_gap:
             self.regen_warning_timer += DT_CTRL
           else:
             self.regen_warning_timer = 0.0
+
+          if self.regen_warning_timer > 0.5:
+            self.frogpilot_events.add(FrogPilotEventName.regenInsufficientWarning)
 
           if self.regen_warning_timer > 0.5:
             self.frogpilot_events.add(FrogPilotEventName.regenInsufficientWarning)
