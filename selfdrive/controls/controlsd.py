@@ -533,16 +533,16 @@ class Controls:
 
         # Only warn if we're closing on the lead (relative velocity > 0)
         if relative_v > 0:
-          # Safety margins
-          reaction_time_dist = CS.vEgo * 0.5  # 0.5 second reaction time
-          safety_margin = 3.0  # meters
+          # Safety margins - specific user request: 4m buffer
+          reaction_time_dist = 0.0  # User requested pure distance calculation
+          safety_margin = 4.0  # meters
 
           # Available distance to stop
           available_dist = lead.dRel - safety_margin - reaction_time_dist
 
           # If ego stopping distance > available distance by 10% margin, and closing fast
           # Added 10% margin and 2 m/s closing speed threshold to reduce false warnings
-          # Added 0.5s temporal hysteresis to filter momentary radar noise
+          # Added 0.5s temporal hysteresis to filter momentary signal noise
           if ego_stopping_dist > available_dist * 1.1 and available_dist > 0 and relative_v > 2.0:
             self.regen_warning_timer += DT_CTRL
           else:
