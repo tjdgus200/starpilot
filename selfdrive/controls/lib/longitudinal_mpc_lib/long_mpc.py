@@ -458,7 +458,10 @@ class LongitudinalMpc:
       ttc = min(max(effective_dist, 0.5) / -lead_v_rel, 100.0)  # #3: Clamp TTC to [0, 100]
       # TTC < 2.5s: Filter 0.0 (Instant Safety)
       # TTC > 5.0s: Filter 1.2s (Max Smoothness)
-      self.current_filter_time = interp(ttc, [2.5, 5.0], [0.0, LEAD_FILTER_TIME_HIGH])
+      ttc_based_filter = interp(ttc, [2.5, 5.0], [0.0, LEAD_FILTER_TIME_HIGH])
+      # Use min of base_filter and ttc_based_filter to prevent sluggishness
+      # This ensures we don't jump to a higher filter time (laggy) than the speed-based tuning
+      self.current_filter_time = min(base_filter, ttc_based_filter)
     else:
       self.current_filter_time = base_filter
 
