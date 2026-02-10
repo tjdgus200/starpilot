@@ -540,8 +540,22 @@ class Controls:
           # Distance ego travels while stopping: d = v*t - 0.5*a*t^2 = 0.5 * v * t
           ego_stop_dist = 0.5 * CS.vEgo * t_stop
           
-          # Distance lead travels during that time (assuming constant speed)
-          lead_travel_dist = lead_v * t_stop
+          # Distance lead travels during that time (considering lead acceleration)
+          # Clamp lead stops to 0 velocity (don't go backwards)
+          lead_a = lead.aLead
+          if lead_a < 0:
+            # Time for lead to stop: t = v / |a|
+            t_lead_stop = -lead_v / lead_a
+            # If lead stops before ego, use lead stop distance
+            if t_lead_stop < t_stop:
+               lead_travel_dist = 0.5 * lead_v * t_lead_stop
+            else:
+               lead_travel_dist = (lead_v * t_stop) + (0.5 * lead_a * t_stop**2)
+          else:
+             # Lead is accelerating or constant speed - assume constant speed for safety (conservative for warning)
+             # Or we can use acceleration, but leads often fluctuate. Constant speed is safer if they stop accelerating.
+             lead_travel_dist = lead_v * t_stop
+          
           
           # Minimum gap required at standstill (4m safety margin)
           min_gap = 4.0
