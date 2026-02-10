@@ -542,7 +542,8 @@ class Controls:
           
           # Distance lead travels during that time (considering lead acceleration)
           # Clamp lead stops to 0 velocity (don't go backwards)
-          lead_a = lead.aLead
+          # Use aLeadK (kinematic acceleration) from radarState
+          lead_a = lead.aLeadK if hasattr(lead, 'aLeadK') else 0.0
           if lead_a < 0:
             # Time for lead to stop: t = v / |a|
             t_lead_stop = -lead_v / lead_a
