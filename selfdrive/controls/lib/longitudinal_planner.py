@@ -228,8 +228,8 @@ class LongitudinalPlanner:
       steer_angle_without_offset = sm['carState'].steeringAngleDeg - sm['liveParameters'].angleOffsetDeg
       accel_limits_turns = limit_accel_in_turns(v_ego, steer_angle_without_offset, accel_limits, self.CP)
     else:
-      accel_limits = [ACCEL_MIN, ACCEL_MAX]
-      accel_limits_turns = [ACCEL_MIN, ACCEL_MAX]
+      accel_limits = [ACCEL_MIN, min(ACCEL_MAX, sm['frogpilotPlan'].maxAcceleration)]
+      accel_limits_turns = [ACCEL_MIN, min(ACCEL_MAX, sm['frogpilotPlan'].maxAcceleration)]
 
     if reset_state:
       self.v_desired_filter.x = v_ego
