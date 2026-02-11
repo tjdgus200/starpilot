@@ -492,8 +492,8 @@ class LongitudinalMpc:
     else:
       tgt_factor = float(np.interp(uncertainty, [0.45, 0.70], [1.0, 0.30]))
 
-    if accel_reengage:
-      tgt_factor = min(tgt_factor, 0.5)
+    # if accel_reengage:
+    #   tgt_factor = min(tgt_factor, 0.5)
 
     # Hard bypass of smoothing when approaching fast or magnitude trips
     if panic_bypass:
