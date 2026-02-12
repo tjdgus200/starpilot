@@ -489,14 +489,14 @@ class LongitudinalMpc:
       # 5. Modulate Costs
       # If margin is HUGE (> 15m), we can be very soft.
       # If margin is TIGHT (< 5m), we must be firm.
-      if regen_safety_margin > 10.0:
+      if regen_safety_margin > 5.0:
         # Safe: Reduce obstacle cost (allow getting closer), Increase jerk cost (enforce smoothness)
         # Scale obstacle cost down to 20%?
-        safe_factor = interp(regen_safety_margin, [10.0, 30.0], [0.5, 0.1])
+        safe_factor = interp(regen_safety_margin, [5.0, 20.0], [0.5, 0.1])
         self.current_x_ego_cost *= safe_factor
         
         # Scale jerk cost up to 5x?
-        jerk_factor = interp(regen_safety_margin, [10.0, 30.0], [2.0, 5.0])
+        jerk_factor = interp(regen_safety_margin, [5.0, 20.0], [2.0, 5.0])
         acceleration_jerk *= jerk_factor
         speed_jerk *= jerk_factor
         
