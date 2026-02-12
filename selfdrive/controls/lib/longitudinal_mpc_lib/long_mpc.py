@@ -444,6 +444,72 @@ class LongitudinalMpc:
     # Model Hard Brake Override: If model predicts >30% probability of 3m/s² hard braking, instant response
     elif hard_brake_prob > 0.3:
       self.current_filter_time = 0.0
+
+    # Dynamic MPC Cost Adjustment based on Regen Safety Margin (User Request)
+    # "Flexible Deceleration": If we have plenty of margin to stop using regen even in worst-case,
+    # act smoother (lower obstacle cost, higher jerk cost).
+    if is_bolt_regen and has_lead and lead_v_rel < -0.1:
+      # Calculate Max Regen Decel at current speed
+      max_regen_decel = interp(v_ego, BOLT_REGEN_DECEL_BP, BOLT_REGEN_DECEL_V) # negative value
+      
+      # 1. Ego Stopping Distance at Max Regen
+      t_stop_ego = v_ego / -max_regen_decel
+      ego_stop_dist = 0.5 * v_ego * t_stop_ego
+      
+      # 2. Lead Stopping Distance (Worst Case: Lead brakes efficiently or stops)
+      # User logic: consider current lead acceleration
+      # If lead is braking (a < 0), project it. If accelerating, assume constant speed (conservative? no, worse is braking)
+      # Actually, worse case is lead slamming brakes. But user liked "current lead behavior" logic + buffer.
+      # Let's use the same logic as warning: Current Lead Accel clamped to 0 velocity.
+      lead_v = v_ego + lead_v_rel # approx
+      # We don't have lead_a passed to set_weights explicitly, but we have internal filtered lead_a
+      lead_a = self.lead_a_filter.x
+      
+      lead_travel_dist = 0.0
+      if lead_a < 0:
+        t_stop_lead = -lead_v / lead_a
+        if t_stop_lead < t_stop_ego:
+           lead_travel_dist = 0.5 * lead_v * t_stop_lead
+        else:
+           lead_travel_dist = (lead_v * t_stop_ego) + (0.5 * lead_a * t_stop_ego**2)
+      else:
+        # Lead not braking -> assume constant speed or slight decel? 
+        # User request: "flexible... as long as regen can handle worst case"
+        # Let's assume constant speed for the "flexible" check, as we want to be permissive when safe.
+        # If we assume lead slams brakes, we will never be "safe" enough to relax.
+        lead_travel_dist = lead_v * t_stop_ego
+      
+      # 3. Predicted Gap after stop
+      # current gap + lead_travel - ego_travel
+      predicted_gap = (lead_dist + lead_travel_dist) - ego_stop_dist
+      
+      # 4. Safety Margin (Gap - 4.0m buffer)
+      regen_safety_margin = predicted_gap - 4.0
+      
+      # 5. Modulate Costs
+      # If margin is HUGE (> 15m), we can be very soft.
+      # If margin is TIGHT (< 5m), we must be firm.
+      if regen_safety_margin > 10.0:
+        # Safe: Reduce obstacle cost (allow getting closer), Increase jerk cost (enforce smoothness)
+        # Scale obstacle cost down to 20%?
+        safe_factor = interp(regen_safety_margin, [10.0, 30.0], [0.5, 0.1])
+        self.current_x_ego_cost *= safe_factor
+        
+        # Scale jerk cost up to 5x?
+        jerk_factor = interp(regen_safety_margin, [10.0, 30.0], [2.0, 5.0])
+        acceleration_jerk *= jerk_factor
+        speed_jerk *= jerk_factor
+        
+      elif regen_safety_margin < 5.0:
+        # Unsafe: Increase obstacle cost (strict), Decrease jerk cost (allow reaction)
+        unsafe_factor = interp(regen_safety_margin, [0.0, 5.0], [5.0, 1.0])
+        self.current_x_ego_cost *= unsafe_factor
+        
+        # Allow quick reaction
+        jerk_relax = interp(regen_safety_margin, [0.0, 5.0], [0.1, 1.0])
+        acceleration_jerk *= jerk_relax
+        speed_jerk *= jerk_relax
+
     # Safety Override: Instant response only when within safety distance AND closing on lead
     # If close but not closing (following at same speed), use normal filter for comfort
     elif has_lead and lead_dist < safety_dist and lead_v_rel < -0.1:
