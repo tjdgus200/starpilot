@@ -17,7 +17,7 @@ class TestCanFingerprint:
 
       fingerprint_iter = iter([can])
       empty_can = messaging.new_message('can', 0)
-      car_fingerprint, finger = can_fingerprint(lambda: next(fingerprint_iter, empty_can))  # noqa: B023
+      car_fingerprint, finger, _ = can_fingerprint(lambda: next(fingerprint_iter, empty_can))  # noqa: B023
 
       assert car_fingerprint == car_model
       assert finger[0] == fingerprint
@@ -26,7 +26,7 @@ class TestCanFingerprint:
 
   def test_timing(self, subtests):
     # just pick any CAN fingerprinting car
-    car_model = "CHEVROLET_BOLT_EUV"
+    car_model = "CHEVROLET_BOLT_ACC_2022_2023"
     fingerprint = FINGERPRINTS[car_model][0]
 
     cases = []
@@ -56,6 +56,6 @@ class TestCanFingerprint:
           frames += 1
           return can  # noqa: B023
 
-        car_fingerprint, _ = can_fingerprint(test)
+        car_fingerprint, _, _ = can_fingerprint(test)
         assert car_fingerprint == car_model
         assert frames == expected_frames + 2# TODO: fix extra frames
